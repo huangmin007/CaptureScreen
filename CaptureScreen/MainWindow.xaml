@@ -1,0 +1,25 @@
+﻿<Window x:Class="CaptureScreen.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CaptureScreen"
+        mc:Ignorable="d"
+        Title="Android Demo Screen" Height="800" Width="600" Background="Black"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <local:InverseVisibilityConverter x:Key="InverseVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid>
+
+        <!-- Capture Screen -->
+        <Image x:Name="ImageCapture" Visibility="Visible" Stretch="Fill" IsVisibleChanged="Controls_IsVisibleChanged"></Image>
+
+        <!-- Video -->
+        <MediaElement  x:Name="MediaPlayer" IsVisibleChanged="Controls_IsVisibleChanged"
+                       Visibility="{Binding Visibility,ElementName=ImageCapture,Converter={StaticResource InverseVisibilityConverter}}"
+                       LoadedBehavior="Manual"  Stretch="Uniform" MediaEnded="MediaPlayer_MediaEnded"></MediaElement>
+
+    </Grid>
+</Window>
