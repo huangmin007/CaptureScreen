@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using SpaceCG.General;
+using SpaceCG.Generic;
 
 namespace CaptureScreen
 {
