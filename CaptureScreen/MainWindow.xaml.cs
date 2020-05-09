@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Drawing;
-using System.Text;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -30,15 +31,20 @@ namespace CaptureScreen
         private AForgeCaptureDevice CaptureDevice;
 
         //Video And Server
-        private string VideoPath;
+        private int VideoIndex = 0;
+        private List<string> VideoPaths;
+
         private TcpServer TcpServer;
         private UdpServer UdpServer;
+        private SocketDataAnalyse<String> DataAnalyse;
+
 
         public MainWindow()
         {
             InitializeComponent();
+#if !DEBUG
             this.SettingWindowState(ConfigurationManager.AppSettings["WindowState"]);
-
+#endif
             if (ConfigurationManager.AppSettings["UseLoggerWindow"] != null && Convert.ToBoolean(ConfigurationManager.AppSettings["UseLoggerWindow"]))
                 _ = new LoggerWindow();
 
@@ -76,29 +82,16 @@ namespace CaptureScreen
                 ImageCapture.Stretch = stretch;
             #endregion
 
-            #region HPSocket Arguments
-            if (ConfigurationManager.AppSettings["ListenPort"] != null)
-            {
-                ushort localPort;
-                if (ushort.TryParse(ConfigurationManager.AppSettings["ListenPort"], out localPort))
-                {
-                    if (localPort >= 1024) OnSocketInitialized(localPort);
-                }
-                else
-                {
-                    Log.InfoFormat("启用网络通信服务失败，端口参数设置错误：{0}", ConfigurationManager.AppSettings["ListenPort"]);
-                }
-            }
-            #endregion
-
             #region Video Arguments
             if (ConfigurationManager.AppSettings["VideoPath"] != null)
             {
-                string path = ConfigurationManager.AppSettings["VideoPath"];
-                if (!string.IsNullOrWhiteSpace(path) || path.ToLower().Trim() == "null")
+                string paths = ConfigurationManager.AppSettings["VideoPath"];
+                if (!string.IsNullOrWhiteSpace(paths) || paths.ToLower().Trim() == "null")
                 {
-                    VideoPath = path;
-                    MediaPlayer.Source = new Uri(Environment.CurrentDirectory + "/" + VideoPath, UriKind.RelativeOrAbsolute);
+                    VideoIndex = 0;
+                    VideoPaths = new List<string>(paths.Split(','));
+
+                    MediaPlayer.Source = GetVideoSource();
                 }
 
                 if (Enum.TryParse<Stretch>(ConfigurationManager.AppSettings["VideoStretch"], true, out stretch))
@@ -106,17 +99,55 @@ namespace CaptureScreen
             }
             #endregion
 
-            Log.InfoFormat("MainWindow");
+            #region HPSocket Arguments
+            if (MediaPlayer.Source != null)
+            {
+                if (ConfigurationManager.AppSettings["ListenPort"] != null)
+                {
+                    ushort localPort;
+                    if (ushort.TryParse(ConfigurationManager.AppSettings["ListenPort"], out localPort))
+                    {
+                        if (localPort >= 1024) 
+                            OnSocketInitialized(localPort);
+                        else
+                            Log.WarnFormat("禁用网络通信服务接口，端口参数设置不在范围：{0}", localPort);
+                    }
+                    else
+                    {
+                        Log.WarnFormat("启用网络通信服务接口失败，端口参数设置错误：{0}", ConfigurationManager.AppSettings["ListenPort"]);
+                    }
+                }
+            }
+            else
+            {
+                Log.Warn("无视频源，将不启动网络通信服务接口");
+            }
+            #endregion
+
+            Log.Info("MainWindow Read Config Complete.");
         }
 
         /// <inheritdoc/>
         protected override void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
-            if (CaptureDevice != null) CaptureDevice.Stop();
 
-            if (TcpServer != null) HPSocketExtension.DisposeServer(TcpServer);
-            if (UdpServer != null) HPSocketExtension.DisposeServer(UdpServer);
+            if (CaptureDevice != null)
+            {
+                CaptureDevice.Dispose();
+                CaptureDevice = null;
+            }
+
+            if (TcpServer != null)
+            {
+                HPSocketExtension.DisposeServer(TcpServer);
+                TcpServer = null;
+            }
+            if (UdpServer != null)
+            {
+                HPSocketExtension.DisposeServer(UdpServer);
+                UdpServer = null;
+            }
 
             Log.InfoFormat("Window Closing");
         }
@@ -147,10 +178,21 @@ namespace CaptureScreen
         {
             UdpServer = HPSocketExtension.CreateServer<UdpServer>(localPort, ClientDataHandler);
             TcpServer = HPSocketExtension.CreateServer<TcpServer>(localPort, ClientDataHandler);
+
+            DataAnalyse = new SocketDataAnalyse<string>();
+            DataAnalyse.AddChannel("socket.client", 128);
         }
         private void ClientDataHandler(IntPtr client, byte[] data)
         {
-            Console.WriteLine("Data:{0}", Encoding.Default.GetString(data));
+            DataAnalyse.AnalyseChannel("socket.client", data, (s, v) =>
+            {
+                Log.InfoFormat("客户端 {0} 数据分析结果：{1}", s, v);
+                ImageCapture.Dispatcher.BeginInvoke((Action)delegate()
+                {
+                    ImageCapture.Visibility = v ? Visibility.Visible : Visibility.Hidden;
+                });
+                return true;
+            });
         }
 
         /// <summary>
@@ -167,11 +209,19 @@ namespace CaptureScreen
             CaptureDevice.Start();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Controls_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
+            /**
+             *  在同屏画面与视频画面切换过程中，不显示的对象需要暂停，以防止出现背景声音在播放 
+             */
             if (ImageCapture.Visibility == Visibility.Visible)
             {
-                if(CaptureDevice != null)   CaptureDevice.Start();
+                if (CaptureDevice != null)   CaptureDevice.Start();
                 if (MediaPlayer.Source != null) MediaPlayer.Pause();
             }
             else
@@ -184,8 +234,44 @@ namespace CaptureScreen
 
         private void MediaPlayer_MediaEnded(object sender, RoutedEventArgs e)
         {
-            MediaPlayer.Position = TimeSpan.Zero;
+            /**
+             * 视频播放完成后，要检查是否存在多个视频循环，还是一个视循频环
+             */ 
+            if (VideoPaths.Count > 1)
+            {
+                VideoIndex = VideoIndex == VideoPaths.Count - 1 ? 0 : VideoIndex + 1;
+                MediaPlayer.Source = GetVideoSource();
+            }
+            else
+            {
+                MediaPlayer.Position = TimeSpan.Zero;
+            }
+
             MediaPlayer.Play();
         }
+
+        /// <summary>
+        /// 获取视频源
+        /// </summary>
+        /// <returns></returns>
+        protected Uri GetVideoSource()
+        {
+            if (VideoPaths.Count == 0) return null;
+
+            String path = Path.Combine(Environment.CurrentDirectory, VideoPaths[VideoIndex]);
+            if(!File.Exists(path))
+            {
+                Log.WarnFormat("视频文件不存在:{0}", path);
+
+                VideoPaths.RemoveAt(VideoIndex);
+                if (VideoIndex >= VideoPaths.Count) VideoIndex--;
+
+                return GetVideoSource();
+            }
+
+            Log.InfoFormat("播放视频文件:{0}", path);
+            return new Uri(path, UriKind.RelativeOrAbsolute);
+        }
     }
+
 }

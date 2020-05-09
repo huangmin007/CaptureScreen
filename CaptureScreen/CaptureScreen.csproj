@@ -64,7 +64,8 @@
     <Reference Include="log4net">
       <HintPath>..\..\..\..\001_Libraries\CSharp\GeneralLibrary\build\Release\log4net.dll</HintPath>
     </Reference>
-    <Reference Include="SpaceCGLibrary">
+    <Reference Include="SpaceCGLibrary, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\001_Libraries\CSharp\GeneralLibrary\build\Release\SpaceCGLibrary.dll</HintPath>
     </Reference>
     <Reference Include="System" />
@@ -88,6 +89,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="SocketDataAnalyse.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

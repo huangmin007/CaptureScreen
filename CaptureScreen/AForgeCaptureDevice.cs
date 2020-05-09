@@ -13,7 +13,7 @@ namespace CaptureScreen
     /// <summary>
     /// Custom AForge Capture Device
     /// </summary>
-    public class AForgeCaptureDevice
+    public class AForgeCaptureDevice:IDisposable
     {
         private String _DeviceName;
         private Rectangle _FrameRectangle;
@@ -87,10 +87,10 @@ namespace CaptureScreen
              * 如果启动停止相达到快速图像切换，不可调用 VideoCaptureDevice.Start() , 该函数启动是异步的，需等待
              * 如果想达到快速不等待效果，让 VideoCaptureDevice 在后台一直启动状态，只是添加或移除 NewFrame 事件
              */
-            if (_CaptureDevice != null && !_CaptureDevice.IsRunning)
+            if (_CaptureDevice != null)
             {
                 _CaptureDevice.NewFrame += CaptureDevice_NewFrame;
-                _CaptureDevice.Start();
+                if (!_CaptureDevice.IsRunning)  _CaptureDevice.Start();
 
                 Log.InfoFormat("Capture Device [{0}] Started Success. ", _DeviceName);
             }
@@ -99,15 +99,32 @@ namespace CaptureScreen
         /// <summary>
         /// 启动设备
         /// </summary>
-        public void Stop()
+        /// <param name="onlyRemoveListen">是否只是移除事件监听，默认为 true; 如果为 false 则在次启动会异步处理。</param>
+        public void Stop(bool onlyRemoveListen = true)
         {
-            if (_CaptureDevice != null && _CaptureDevice.IsRunning)
+            if (_CaptureDevice != null)
+            {
+                _CaptureDevice.NewFrame -= CaptureDevice_NewFrame;
+                if(_CaptureDevice.IsRunning && !onlyRemoveListen) _CaptureDevice.SignalToStop();
+
+                Log.InfoFormat("Capture Device [{0}] Stopped Success. ", _DeviceName);
+            }
+        }
+
+        /// <summary>
+        /// 停止并清理设备
+        /// </summary>
+        public void Dispose()
+        {
+            if (_CaptureDevice != null)
             {
                 _CaptureDevice.NewFrame -= CaptureDevice_NewFrame;
                 _CaptureDevice.SignalToStop();
 
-                Log.InfoFormat("Capture Device [{0}] Stopped Success. ", _DeviceName);
+                Log.InfoFormat("Capture Device [{0}] Dispose Success. ", _DeviceName);
             }
+
+            _CaptureDevice = null;
         }
 
         /// <summary>
@@ -162,10 +179,9 @@ namespace CaptureScreen
         /// </summary>
         public static void OutputCaptureDeviceInfo()
         {
-            String format = "";
             foreach (FilterInfo info in new FilterInfoCollection(FilterCategory.VideoInputDevice))
             {
-                format += $"CaptureDevice Name:{info.Name}  MonikerString:{info.MonikerString}";
+                String format = $"CaptureDevice Name:[{info.Name}]  MonikerString:[{info.MonikerString}]";
 
                 VideoCaptureDevice device = new VideoCaptureDevice(info.MonikerString);
 
@@ -177,6 +193,7 @@ namespace CaptureScreen
                 foreach (VideoCapabilities cap in device.SnapshotCapabilities)
                     format += $"{cap.FrameSize}  ";
 
+                device.SignalToStop();
                 Log.Info(format);
             }
         }
@@ -272,7 +289,6 @@ namespace CaptureScreen
             capabilities = null;
             return false;
         }
-
 
     }
 }
