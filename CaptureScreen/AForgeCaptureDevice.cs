@@ -172,8 +172,6 @@ namespace CaptureScreen
             }
         }
 
-
-
         /// <summary>
         /// 输出所有设备信息
         /// </summary>
