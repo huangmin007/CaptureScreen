@@ -34,8 +34,8 @@ namespace CaptureScreen
         {
             OutputCaptureDeviceInfo();
 
-            if (String.IsNullOrWhiteSpace(deviceName)) throw new ArgumentNullException("deviceName", "参数不能为空");
-            if (imageControl == null) throw new ArgumentNullException("imageControl", "参数不能为空");
+            if (String.IsNullOrWhiteSpace(deviceName)) throw new ArgumentNullException(nameof(deviceName), "参数不能为空");
+            if (imageControl == null) throw new ArgumentNullException(nameof(imageControl), "参数不能为空");
 
             this._DeviceName = deviceName;
             this._ImageControl = imageControl;
@@ -138,17 +138,17 @@ namespace CaptureScreen
             {
                 Bitmap bmp;
 
-                if (!_FrameRectangle.IsEmpty)
+                if (_FrameRectangle.IsEmpty)
+                {
+                    bmp = (Bitmap)e.Frame;//.Clone();
+                }
+                else
                 {
                     bmp = new Bitmap(_FrameRectangle.Width, _FrameRectangle.Height);
                     using (Graphics g = Graphics.FromImage(bmp))
                     {
                         g.DrawImage(e.Frame, new Rectangle(0, 0, bmp.Width, bmp.Height), _FrameRectangle, GraphicsUnit.Pixel);
                     }
-                }
-                else
-                {
-                    bmp = (Bitmap)e.Frame;//.Clone();
                 }
 
                 MemoryStream ms = new MemoryStream();
@@ -162,7 +162,7 @@ namespace CaptureScreen
                 bitmap.Freeze();
 
                 _ImageControl.Dispatcher.BeginInvoke((Action)delegate ()
-                {
+                {                    
                     _ImageControl.Source = bitmap;
                 });
             }
@@ -184,12 +184,25 @@ namespace CaptureScreen
                 VideoCaptureDevice device = new VideoCaptureDevice(info.MonikerString);
 
                 format += $"\nVideoCapabilities FrameSize: ";
-                foreach (VideoCapabilities cap in device.VideoCapabilities)
-                    format += $"{cap.FrameSize}  ";
+                foreach (VideoCapabilities cap in device.VideoCapabilities) format += $"{cap.FrameSize}  ";
 
                 format += $"\nSnapshotCapabilities FrameSize: ";
-                foreach (VideoCapabilities cap in device.SnapshotCapabilities)
-                    format += $"{cap.FrameSize}  ";
+                foreach (VideoCapabilities cap in device.SnapshotCapabilities)  format += $"{cap.FrameSize}  ";
+
+                format += $"\nCamera Control Properties:";
+                for(CameraControlProperty pro = CameraControlProperty.Pan; pro <= CameraControlProperty.Focus; pro ++)
+                {
+                    if (device.GetCameraProperty(pro, out int value, out CameraControlFlags flags))
+                    {
+                        if (device.GetCameraPropertyRange(pro, out int minValue, out int maxValue, out int stepSize, out int defaultValue, out CameraControlFlags rFlags))
+                            format += $"(CameraControlFlags.{pro}({(int)pro}) value:{value} minValue:{minValue} maxValue:{maxValue} stepSize:{stepSize} defaultValue:{defaultValue} flags:[{flags}] cFlags:[{rFlags}])  ";
+                        else
+                            format += $"(CameraControlFlags.{pro}({(int)pro}) value:{value} flags:[{flags}])  ";
+                    }
+                }
+
+                //device.DisplayPropertyPage(IntPtr.Zero);
+                //device.DisplayCrossbarPropertyPage(IntPtr.Zero);
 
                 device.SignalToStop();
                 Log.Info(format);
@@ -249,6 +262,12 @@ namespace CaptureScreen
         {
             capabilities = null;
             if (device == null) return false;
+
+            if(frameSize.IsEmpty)
+            {
+                capabilities = device.VideoCapabilities[0];
+                return true;
+            }
 
             foreach (VideoCapabilities cap in device.VideoCapabilities)
             {
