@@ -14,7 +14,8 @@
     <Grid>
 
         <!-- Capture Screen -->
-        <Image x:Name="ImageCapture" Visibility="Visible" Stretch="Fill" IsVisibleChanged="Controls_IsVisibleChanged"></Image>
+        <Image x:Name="ImageCapture" Visibility="Visible" Stretch="Fill" IsVisibleChanged="Controls_IsVisibleChanged">
+        </Image>
 
         <!-- Video -->
         <MediaElement  x:Name="MediaPlayer" IsVisibleChanged="Controls_IsVisibleChanged"

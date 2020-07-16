@@ -7,6 +7,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using HPSocket.Tcp;
 using HPSocket.Udp;
 using SpaceCG.Extension;
@@ -204,7 +205,12 @@ namespace CaptureScreen
         {
             Log.InfoFormat("Window Loaded");
 
-            CaptureDevice = new AForgeCaptureDevice(CaptureDeviceName, ImageCapture);
+            int rotation = 0;
+
+            if(ConfigurationManager.AppSettings["CaptureDeviceRotation"] != null)
+                rotation = Convert.ToInt32(ConfigurationManager.AppSettings["CaptureDeviceRotation"]);
+
+            CaptureDevice = new AForgeCaptureDevice(CaptureDeviceName, ImageCapture, (Rotation)rotation);
             CaptureDevice.SetFrameResolution(FrameSize, FrameRectangle);
             CaptureDevice.Start();
         }
