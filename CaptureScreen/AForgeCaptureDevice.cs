@@ -157,8 +157,8 @@ namespace CaptureScreen
                 bmp.Save(ms, ImageFormat.Bmp);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                //https://docs.microsoft.com/zh-cn/dotnet/framework/wpf/controls/how-to-rotate-an-image
-                //https://docs.microsoft.com/zh-cn/dotnet/framework/wpf/controls/how-to-crop-an-image
+                //旋转：https://docs.microsoft.com/zh-cn/dotnet/framework/wpf/controls/how-to-rotate-an-image
+                //裁剪：https://docs.microsoft.com/zh-cn/dotnet/framework/wpf/controls/how-to-crop-an-image
                 BitmapImage bitmap = new BitmapImage();
                 bitmap.BeginInit();
                 bitmap.StreamSource = ms;
