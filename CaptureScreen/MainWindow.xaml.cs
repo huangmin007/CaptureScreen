@@ -205,8 +205,19 @@ namespace CaptureScreen
         {
             Log.InfoFormat("Window Loaded");
 
-            int rotation = 0;
+            string bgUrl = "background/background.jpg";
+            if(File.Exists(bgUrl))
+            {
+                Uri uri = new Uri(bgUrl, UriKind.RelativeOrAbsolute);                
+                BitmapImage bg = new BitmapImage(uri);                
+                this.Background = new ImageBrush(bg);
+            }
+            else
+            {
+                Log.WarnFormat("不存在背景图像：{0}", bgUrl);
+            }
 
+            int rotation = 0;
             if(ConfigurationManager.AppSettings["CaptureDeviceRotation"] != null)
                 rotation = Convert.ToInt32(ConfigurationManager.AppSettings["CaptureDeviceRotation"]);
 

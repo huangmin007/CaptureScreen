@@ -11,7 +11,7 @@
         <local:InverseVisibilityConverter x:Key="InverseVisibilityConverter"/>
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="Grid">
 
         <!-- Capture Screen -->
         <Image x:Name="ImageCapture" Visibility="Visible" Stretch="Fill" IsVisibleChanged="Controls_IsVisibleChanged">
